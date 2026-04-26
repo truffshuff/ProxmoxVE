@@ -31,7 +31,40 @@ function update_script() {
 
   ensure_dependencies ffmpeg
 
-  if check_for_gh_release "bambuddy" "maziggy/bambuddy"; then
+  local RELEASE_TAG=""
+
+  if [[ "${VERBOSE:-no}" == "yes" ]]; then
+    if RELEASE_CHOICE=$(whiptail --backtitle "Proxmox VE Helper Scripts" \
+      --title "SELECT RELEASE TYPE" \
+      --radiolist "\nSelect ${APP} build type:\n\nUse SPACE to select, ENTER to confirm." \
+      12 60 2 \
+      "latest"     "Latest Stable Release" ON \
+      "prerelease" "Prerelease / Daily Build" OFF \
+      3>&1 1>&2 2>&3); then
+      if [[ "$RELEASE_CHOICE" == "prerelease" ]]; then
+        msg_info "Fetching latest prerelease"
+        RELEASE_TAG=$(curl -fsSL "https://api.github.com/repos/maziggy/bambuddy/releases" \
+          | jq -r '[.[] | select(.prerelease==true)][0].tag_name // empty')
+        if [[ -n "$RELEASE_TAG" ]]; then
+          export var_appversion="$RELEASE_TAG"
+          msg_ok "Selected prerelease: ${RELEASE_TAG}"
+        else
+          msg_warn "No prerelease builds found; defaulting to latest stable."
+        fi
+      fi
+    fi
+  fi
+
+  # check_for_gh_release filters out prereleases, so for the prerelease path
+  # we skip it and let fetch_and_deploy_gh_release handle the version check internally.
+  local do_update="false"
+  if [[ -n "$RELEASE_TAG" ]]; then
+    do_update="true"
+  elif check_for_gh_release "bambuddy" "maziggy/bambuddy"; then
+    do_update="true"
+  fi
+
+  if [[ "$do_update" == "true" ]]; then
     msg_info "Stopping Service"
     systemctl stop bambuddy
     msg_ok "Stopped Service"
@@ -44,7 +77,7 @@ function update_script() {
     [[ -d /opt/bambuddy/archive ]] && cp -r /opt/bambuddy/archive /opt/bambuddy_archive_bak
     msg_ok "Backed up Configuration and Data"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bambuddy" "maziggy/bambuddy" "tarball" "latest" "/opt/bambuddy"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bambuddy" "maziggy/bambuddy" "tarball" "${RELEASE_TAG:-latest}" "/opt/bambuddy"
 
     msg_info "Updating Python Dependencies"
     cd /opt/bambuddy
@@ -81,6 +114,29 @@ function update_script() {
 }
 
 start
+
+# In Advanced Install mode, offer version selection before container creation
+if [[ "${METHOD:-}" == "advanced" ]]; then
+  if RELEASE_CHOICE=$(whiptail --backtitle "Proxmox VE Helper Scripts" \
+    --title "SELECT RELEASE TYPE" \
+    --radiolist "\nSelect ${APP} build type:\n\nUse SPACE to select, ENTER to confirm." \
+    12 60 2 \
+    "latest"     "Latest Stable Release" ON \
+    "prerelease" "Prerelease / Daily Build" OFF \
+    3>&1 1>&2 2>&3); then
+    if [[ "$RELEASE_CHOICE" == "prerelease" ]]; then
+      PRERELEASE_TAG=$(curl -fsSL "https://api.github.com/repos/maziggy/bambuddy/releases" \
+        | jq -r '[.[] | select(.prerelease==true)][0].tag_name // empty')
+      if [[ -n "$PRERELEASE_TAG" ]]; then
+        export var_appversion="$PRERELEASE_TAG"
+        msg_ok "Selected prerelease: ${PRERELEASE_TAG}"
+      else
+        msg_warn "No prerelease builds found; defaulting to latest stable."
+      fi
+    fi
+  fi
+fi
+
 build_container
 description
 

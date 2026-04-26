@@ -64,4 +64,5 @@ msg_ok "Created Service"
 
 motd_ssh
 customize
+echo "bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/truffshuff/ProxmoxVE/main/ct/bambuddy.sh)\"" >/usr/bin/update
 cleanup_lxc
