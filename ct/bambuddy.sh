@@ -44,7 +44,7 @@ function update_script() {
     [[ -d /opt/bambuddy/archive ]] && cp -r /opt/bambuddy/archive /opt/bambuddy_archive_bak
     msg_ok "Backed up Configuration and Data"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bambuddy" "maziggy/bambuddy" "tarball" "latest" "/opt/bambuddy"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bambuddy" "maziggy/bambuddy" "tarball" "daily" "/opt/bambuddy"
 
     msg_info "Updating Python Dependencies"
     cd /opt/bambuddy
